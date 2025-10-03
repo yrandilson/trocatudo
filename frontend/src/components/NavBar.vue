@@ -37,6 +37,12 @@
               <i class="fas fa-users-cog"></i> Admin
             </router-link>
             
+            <!-- Botão de sair para dispositivos móveis -->
+            <a @click="logout" class="navbar-item mobile-logout">
+              <i class="fas fa-sign-out-alt"></i> Sair
+            </a>
+            
+            <!-- Menu dropdown para desktop -->
             <div class="navbar-item has-dropdown" :class="{ 'is-active': userDropdownOpen }">
               <a @click.prevent="toggleUserDropdown" class="navbar-link">
                 <i class="fas fa-user-circle"></i>
@@ -89,7 +95,7 @@ const userDropdownOpen = ref(false);
 const pendingPropostas = computed(() => {
   if (!authStore.isAuthenticated) return 0;
   
-  return propostasStore.receivedPropostas.filter(
+  return propostasStore.propostasRecebidas.filter(
     proposta => proposta.status === PropostaStatus.PENDENTE
   ).length;
 });
@@ -118,6 +124,7 @@ const closeDropdowns = (event: MouseEvent) => {
 const logout = async () => {
   await authStore.logout();
   router.push('/login');
+  menuOpen.value = false; // Fechar menu móvel após logout
 };
 
 // Carregar propostas pendentes quando o usuário estiver autenticado
@@ -126,7 +133,7 @@ onMounted(async () => {
   
   if (authStore.isAuthenticated) {
     try {
-      await propostasStore.fetchReceivedPropostas();
+      await propostasStore.fetchPropostasRecebidas();
     } catch (error) {
       console.error('Erro ao carregar propostas:', error);
     }
@@ -296,6 +303,11 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
+.mobile-logout {
+  display: none;
+  cursor: pointer;
+}
+
 .navbar-burger {
   display: none;
   cursor: pointer;
@@ -375,6 +387,12 @@ onBeforeUnmount(() => {
   
   .has-dropdown {
     width: 100%;
+    display: none; /* Esconder dropdown em dispositivos móveis */
+  }
+  
+  .mobile-logout {
+    display: flex; /* Mostrar botão de sair em dispositivos móveis */
+    color: #e74c3c;
   }
   
   .navbar-dropdown {

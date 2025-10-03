@@ -57,6 +57,7 @@
           </div>
 
           <div class="item-actions">
+            <!-- Botão de proposta para usuários autenticados que não são donos do item -->
             <button 
               v-if="canPropose" 
               @click="showPropostaForm = true" 
@@ -64,7 +65,22 @@
             >
               <i class="fas fa-handshake"></i> Fazer Proposta
             </button>
+            
+            <!-- Mensagem para usuários não autenticados -->
+            <div v-else-if="!authStore.isAuthenticated" class="login-prompt">
+              <p>Faça login para enviar uma proposta para este item</p>
+              <router-link to="/login" class="login-button">
+                <i class="fas fa-sign-in-alt"></i> Entrar
+              </router-link>
+            </div>
+            
+            <!-- Mensagem para itens já trocados -->
+            <div v-else-if="itemStore.currentItem.status === ItemStatus.TROCADO" class="traded-message">
+              <i class="fas fa-info-circle"></i>
+              <span>Este item já foi trocado e não está mais disponível</span>
+            </div>
 
+            <!-- Ações para o dono do item ou moderadores -->
             <div v-if="isOwner || isModerator" class="owner-actions">
               <router-link 
                 :to="{ name: 'EditItem', params: { id: itemStore.currentItem.id } }" 
@@ -74,6 +90,38 @@
               </router-link>
               <button @click="confirmDelete = true" class="delete-button">
                 <i class="fas fa-trash"></i> Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Seção de propostas relacionadas para o dono do item -->
+      <div v-if="isOwner && relatedPropostas.length > 0" class="related-propostas">
+        <h2>Propostas Recebidas</h2>
+        <div class="propostas-list">
+          <div v-for="proposta in relatedPropostas" :key="proposta.id" class="proposta-card">
+            <div class="proposta-header">
+              <div class="proposta-status" :class="getPropostaStatusClass(proposta.status)">
+                {{ getPropostaStatusLabel(proposta.status) }}
+              </div>
+              <div class="proposta-date">{{ formatDate(proposta.createdAt) }}</div>
+            </div>
+            <div class="proposta-body">
+              <div class="proposta-user">
+                <i class="fas fa-user"></i>
+                <span>{{ proposta.proponente?.nome }}</span>
+              </div>
+              <div v-if="proposta.mensagem" class="proposta-message">
+                <p>{{ proposta.mensagem }}</p>
+              </div>
+            </div>
+            <div v-if="proposta.status === PropostaStatus.PENDENTE" class="proposta-actions">
+              <button @click="updatePropostaStatus(proposta.id, PropostaStatus.ACEITA)" class="accept-button">
+                <i class="fas fa-check"></i> Aceitar
+              </button>
+              <button @click="updatePropostaStatus(proposta.id, PropostaStatus.RECUSADA)" class="reject-button">
+                <i class="fas fa-times"></i> Recusar
               </button>
             </div>
           </div>
@@ -152,7 +200,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useItemsStore } from '@/stores/items';
 import { useAuthStore } from '@/stores/auth';
 import { usePropostasStore } from '@/stores/propostas';
-import { ItemCategoria, ItemStatus, UserRole } from '@/types';
+import { ItemCategoria, ItemStatus, UserRole, PropostaStatus } from '@/types';
 import ImageCarousel from '@/components/ImageCarousel.vue';
 
 const route = useRoute();
@@ -188,6 +236,14 @@ const canPropose = computed(() => {
   );
 });
 
+const relatedPropostas = computed(() => {
+  if (!itemStore.currentItem) return [];
+  
+  return propostasStore.propostasRecebidas.filter(
+    proposta => proposta.itemId === itemStore.currentItem?.id
+  );
+});
+
 const fetchItem = async () => {
   const id = Number(route.params.id);
   if (isNaN(id)) {
@@ -200,6 +256,11 @@ const fetchItem = async () => {
 
   try {
     await itemStore.fetchItemById(id);
+    
+    // Se o usuário for o dono do item, carregar as propostas relacionadas
+    if (authStore.isAuthenticated && isOwner.value) {
+      await propostasStore.fetchPropostasRecebidas();
+    }
   } catch (err: any) {
     error.value = err.message || 'Erro ao carregar o item';
   } finally {
@@ -213,10 +274,7 @@ const enviarProposta = async () => {
   enviandoProposta.value = true;
   
   try {
-    await propostasStore.createProposta({
-      itemId: itemStore.currentItem.id,
-      mensagem: propostaForm.value.mensagem
-    });
+    await propostasStore.createProposta(itemStore.currentItem.id, propostaForm.value.mensagem);
     
     showPropostaForm.value = false;
     propostaForm.value.mensagem = '';
@@ -227,6 +285,27 @@ const enviarProposta = async () => {
     alert(err.message || 'Erro ao enviar proposta');
   } finally {
     enviandoProposta.value = false;
+  }
+};
+
+const updatePropostaStatus = async (id: number, status: PropostaStatus) => {
+  try {
+    await propostasStore.updatePropostaStatus(id, status);
+    
+    // Se aceitar a proposta, atualizar o status do item para trocado
+    if (status === PropostaStatus.ACEITA && itemStore.currentItem) {
+      await itemStore.updateItem(itemStore.currentItem.id, {
+        status: ItemStatus.TROCADO
+      });
+      
+      // Recarregar o item para atualizar o status
+      await itemStore.fetchItemById(itemStore.currentItem.id);
+    }
+    
+    // Recarregar as propostas
+    await propostasStore.fetchPropostasRecebidas();
+  } catch (err: any) {
+    alert(err.message || 'Erro ao atualizar proposta');
   }
 };
 
@@ -271,6 +350,23 @@ const getStatusClass = (status: ItemStatus) => {
   return {
     [ItemStatus.DISPONIVEL]: 'available',
     [ItemStatus.TROCADO]: 'traded'
+  }[status] || '';
+};
+
+const getPropostaStatusLabel = (status: PropostaStatus) => {
+  const labels = {
+    [PropostaStatus.PENDENTE]: 'Pendente',
+    [PropostaStatus.ACEITA]: 'Aceita',
+    [PropostaStatus.RECUSADA]: 'Recusada'
+  };
+  return labels[status] || 'Desconhecido';
+};
+
+const getPropostaStatusClass = (status: PropostaStatus) => {
+  return {
+    [PropostaStatus.PENDENTE]: 'pending',
+    [PropostaStatus.ACEITA]: 'accepted',
+    [PropostaStatus.RECUSADA]: 'rejected'
   }[status] || '';
 };
 
@@ -403,6 +499,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 30px;
+  margin-bottom: 30px;
 }
 
 @media (max-width: 768px) {
@@ -473,6 +570,38 @@ onMounted(() => {
   gap: 8px;
 }
 
+.login-prompt {
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  text-align: center;
+}
+
+.login-button {
+  display: inline-flex;
+  align-items: center;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  margin-top: 10px;
+  text-decoration: none;
+  gap: 8px;
+}
+
+.traded-message {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  color: #7f8c8d;
+}
+
 .owner-actions {
   display: flex;
   gap: 10px;
@@ -525,6 +654,116 @@ onMounted(() => {
   border-radius: 4px;
   cursor: pointer;
   text-decoration: none;
+}
+
+/* Seção de propostas relacionadas */
+.related-propostas {
+  margin-top: 30px;
+  border-top: 1px solid #eee;
+  padding-top: 30px;
+}
+
+.related-propostas h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.propostas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.proposta-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.proposta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+.proposta-status {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.proposta-status.pending {
+  background-color: #f39c12;
+  color: white;
+}
+
+.proposta-status.accepted {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.proposta-status.rejected {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.proposta-date {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.proposta-body {
+  padding: 15px;
+}
+
+.proposta-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.proposta-message {
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+.proposta-message p {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.proposta-actions {
+  display: flex;
+  border-top: 1px solid #eee;
+}
+
+.accept-button,
+.reject-button {
+  flex: 1;
+  border: none;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.accept-button {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.reject-button {
+  background-color: #e74c3c;
+  color: white;
 }
 
 /* Modal styles */
