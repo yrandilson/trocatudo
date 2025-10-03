@@ -5,7 +5,9 @@ import type {
   Proposta, 
   LoginCredentials, 
   RegisterData,
-  PaginationResponse 
+  PaginationResponse,
+  Category,
+  Rating
 } from '@/types'
 
 const api = axios.create({
@@ -31,25 +33,30 @@ export const authAPI = {
   me: () => api.get<User>('/auth/me')
 }
 
+// Categories
+export const categoriesAPI = {
+    getAll: () => api.get<Category[]>('/categories'),
+}
+
 // Items
 export const itemsAPI = {
-  getAll: (page = 1, limit = 10, categoria?: string, status?: string) => 
+  getAll: (page = 1, limit = 10, category?: string, status?: string) => 
     api.get<PaginationResponse<Item>>('/items', { 
-      params: { page, limit, categoria, status } 
+      params: { page, limit, category, status } 
     }),
   getById: (id: number) => api.get<Item>(`/items/${id}`),
-  create: (data: Partial<Item>) => api.post('/items', data),
-  update: (id: number, data: Partial<Item>) => api.put(`/items/${id}`, data),
+  create: (data: Partial<Item>) => api.post<Item>('/items', data),
+  update: (id: number, data: Partial<Item>) => api.put<Item>(`/items/${id}`, data),
   delete: (id: number) => api.delete(`/items/${id}`),
   myItems: () => api.get<Item[]>('/items/my/items'),
   uploadImages: (id: number, formData: FormData) => 
-    api.post(`/items/${id}/images`, formData, {
+    api.post<Item>(`/items/${id}/images`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     }),
   removeImage: (id: number, imageIndex: number) => 
-    api.delete(`/items/${id}/images`, {
+    api.delete<Item>(`/items/${id}/images`, {
       data: { imageIndex }
     })
 }
@@ -65,6 +72,12 @@ export const propostasAPI = {
   delete: (id: number) => api.delete(`/propostas/${id}`)
 }
 
+// Ratings
+export const ratingsAPI = {
+    create: (data: { propostaId: number, score: number, comment?: string }) => api.post<Rating>('/ratings', data),
+    getUserRatings: (userId: number) => api.get<Rating[]>(`/users/${userId}/ratings`),
+}
+
 // Users (Admin only)
 export const usersAPI = {
   getAll: () => api.get<User[]>('/users'),
@@ -73,4 +86,4 @@ export const usersAPI = {
   delete: (id: number) => api.delete(`/users/${id}`)
 }
 
-export default api
+export default api;

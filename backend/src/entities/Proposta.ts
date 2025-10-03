@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './User';
 import { Item } from './Item';
+import { Rating } from './Rating';
 
 export enum PropostaStatus {
   PENDENTE = 'pendente',
@@ -41,4 +42,7 @@ export class Proposta {
 
   @UpdateDateColumn()
   updatedAt!: Date;
+  
+  @OneToOne(() => Rating, rating => rating.proposta)
+rating!: Rating;
 }

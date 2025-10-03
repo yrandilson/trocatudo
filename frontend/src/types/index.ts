@@ -9,15 +9,6 @@ export enum ItemStatus {
   TROCADO = 'trocado'
 }
 
-export enum ItemCategoria {
-  ELETRONICOS = 'eletronicos',
-  VESTUARIO = 'vestuario',
-  MOVEIS = 'moveis',
-  LIVROS = 'livros',
-  ESPORTES = 'esportes',
-  OUTROS = 'outros'
-}
-
 export enum PropostaStatus {
   PENDENTE = 'pendente',
   ACEITA = 'aceita',
@@ -33,13 +24,18 @@ export interface User {
   updatedAt: string
 }
 
+export interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface Item {
   id: number
   titulo: string
   descricao: string
-  categoria: ItemCategoria
-  fotos?: string
-  imagens?: string[] // Novo campo para múltiplas imagens
+  category: Category
+  imagens?: string[]
   status: ItemStatus
   userId: number
   user?: User
@@ -57,6 +53,16 @@ export interface Proposta {
   status: PropostaStatus
   createdAt: string
   updatedAt: string
+  rating?: Rating; // Adicionado
+}
+
+export interface Rating {
+    id: number;
+    score: number;
+    comment?: string;
+    ratedByUserId: number;
+    ratedByUser: User;
+    createdAt: string;
 }
 
 export interface LoginCredentials {

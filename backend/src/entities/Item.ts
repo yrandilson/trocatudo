@@ -1,19 +1,11 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from './User';
 import { Proposta } from './Proposta';
+import { Category } from './Category';
 
 export enum ItemStatus {
   DISPONIVEL = 'disponivel',
   TROCADO = 'trocado'
-}
-
-export enum ItemCategoria {
-  ELETRONICOS = 'eletronicos',
-  VESTUARIO = 'vestuario',
-  MOVEIS = 'moveis',
-  LIVROS = 'livros',
-  ESPORTES = 'esportes',
-  OUTROS = 'outros'
 }
 
 @Entity('items')
@@ -26,18 +18,16 @@ export class Item {
 
   @Column('text')
   descricao!: string;
+  
+  @Column()
+  categoryId!: number;
 
-  @Column({
-    type: 'text',
-    default: ItemCategoria.OUTROS
-  })
-  categoria!: ItemCategoria;
-
-  @Column({ type: 'text', nullable: true })
-  fotos?: string; // Mantido para compatibilidade com código existente
+  @ManyToOne(() => Category, (category) => category.items)
+  @JoinColumn({ name: 'categoryId' })
+  category!: Category;
 
   @Column('simple-array', { nullable: true })
-  imagens?: string[]; // Novo campo para armazenar múltiplas imagens
+  imagens?: string[];
 
   @Column({
     type: 'text',

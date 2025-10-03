@@ -38,10 +38,10 @@
 
       <div class="form-group">
         <label for="categoria">Categoria *</label>
-        <select id="categoria" v-model="formData.categoria" required>
-          <option value="" disabled>Selecione uma categoria</option>
-          <option v-for="(label, value) in categorias" :key="value" :value="value">
-            {{ label }}
+        <select id="categoria" v-model="formData.categoryId" required>
+          <option :value="null" disabled>Selecione uma categoria</option>
+          <option v-for="cat in categoryStore.categories" :key="cat.id" :value="cat.id">
+            {{ cat.name }}
           </option>
         </select>
       </div>
@@ -67,7 +67,7 @@
       </div>
 
       <ImageUploader 
-        v-if="isEditing" 
+        v-if="isEditing && itemId" 
         :itemId="itemId" 
         :existingImages="formData.imagens"
         @update:images="formData.imagens = $event"
@@ -94,12 +94,14 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useItemsStore } from '@/stores/items';
-import { ItemCategoria, ItemStatus } from '@/types';
+import { useCategoryStore } from '@/stores/categories'; // Importa a nova store
+import { ItemStatus } from '@/types';
 import ImageUploader from '@/components/ImageUploader.vue';
 
 const route = useRoute();
 const router = useRouter();
 const itemStore = useItemsStore();
+const categoryStore = useCategoryStore(); // Instancia a nova store
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -107,7 +109,7 @@ const submitting = ref(false);
 
 const formData = ref({
   titulo: '',
-  categoria: ItemCategoria.OUTROS,
+  categoryId: null as number | null, // Atualizado de 'categoria' para 'categoryId'
   descricao: '',
   status: ItemStatus.DISPONIVEL,
   imagens: [] as string[]
@@ -121,15 +123,6 @@ const itemId = computed(() => {
   return isEditing.value ? Number(route.params.id) : 0;
 });
 
-const categorias = {
-  [ItemCategoria.ELETRONICOS]: 'Eletrônicos',
-  [ItemCategoria.VESTUARIO]: 'Vestuário',
-  [ItemCategoria.MOVEIS]: 'Móveis',
-  [ItemCategoria.LIVROS]: 'Livros',
-  [ItemCategoria.ESPORTES]: 'Esportes',
-  [ItemCategoria.OUTROS]: 'Outros'
-};
-
 const statusOptions = {
   [ItemStatus.DISPONIVEL]: 'Disponível',
   [ItemStatus.TROCADO]: 'Trocado'
@@ -142,6 +135,7 @@ const fetchItem = async () => {
   error.value = null;
 
   try {
+    // Usando a store para buscar o item, que já lida com o estado de loading e erro
     await itemStore.fetchItemById(itemId.value);
     
     if (!itemStore.currentItem) {
@@ -151,7 +145,7 @@ const fetchItem = async () => {
     // Preencher o formulário com os dados do item
     formData.value = {
       titulo: itemStore.currentItem.titulo,
-      categoria: itemStore.currentItem.categoria,
+      categoryId: itemStore.currentItem.category.id, // Atualizado
       descricao: itemStore.currentItem.descricao,
       status: itemStore.currentItem.status,
       imagens: itemStore.currentItem.imagens || []
@@ -166,7 +160,7 @@ const fetchItem = async () => {
 const resetForm = () => {
   formData.value = {
     titulo: '',
-    categoria: ItemCategoria.OUTROS,
+    categoryId: null, // Atualizado
     descricao: '',
     status: ItemStatus.DISPONIVEL,
     imagens: []
@@ -180,11 +174,28 @@ const submitForm = async () => {
 
   try {
     if (isEditing.value) {
-      await itemStore.updateItem(itemId.value, formData.value);
+      // Atualizando item
+      await itemStore.updateItem(itemId.value, {
+        titulo: formData.value.titulo,
+        descricao: formData.value.descricao,
+        status: formData.value.status,
+        categoryId: formData.value.categoryId,
+      });
       router.push(`/items/${itemId.value}`);
     } else {
-      const result = await itemStore.createItem(formData.value);
-      router.push('/my-items');
+      // Criando novo item
+      const newItem = await itemStore.createItem({
+        titulo: formData.value.titulo,
+        descricao: formData.value.descricao,
+        categoryId: formData.value.categoryId,
+      });
+      
+      // Se a criação for bem-sucedida, redireciona para a página de edição para adicionar fotos
+      if (newItem && newItem.id) {
+        router.push(`/items/${newItem.id}/edit`);
+      } else {
+        router.push('/my-items');
+      }
     }
   } catch (err: any) {
     error.value = err.message || 'Erro ao salvar o item';
@@ -198,9 +209,12 @@ const goBack = () => {
   router.back();
 };
 
-onMounted(() => {
+onMounted(async () => {
+  // Garante que as categorias sejam carregadas antes de qualquer outra coisa
+  await categoryStore.fetchCategories();
+  
   if (isEditing.value) {
-    fetchItem();
+    await fetchItem();
   }
 });
 </script>
