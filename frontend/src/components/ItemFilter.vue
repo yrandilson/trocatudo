@@ -9,15 +9,16 @@
     
     <div class="filter-section">
       <h4>Categorias</h4>
-      <div class="filter-options">
-        <label v-for="(label, value) in categorias" :key="value" class="filter-option">
+      <div v-if="categoryStore.loading">Carregando...</div>
+      <div class="filter-options" v-else>
+        <label v-for="cat in categoryStore.categories" :key="cat.id" class="filter-option">
           <input 
             type="checkbox" 
-            :value="value" 
+            :value="cat.slug" 
             v-model="selectedCategories"
             @change="applyFilters"
           />
-          <span>{{ label }}</span>
+          <span>{{ cat.name }}</span>
         </label>
       </div>
     </div>
@@ -42,16 +43,15 @@
       <select v-model="sortBy" @change="applyFilters" class="sort-select">
         <option value="newest">Mais recentes</option>
         <option value="oldest">Mais antigos</option>
-        <option value="az">A-Z</option>
-        <option value="za">Z-A</option>
       </select>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { ItemCategoria, ItemStatus } from '@/types';
+import { ref, watch, onMounted } from 'vue';
+import { useCategoryStore } from '@/stores/categories';
+import { ItemStatus } from '@/types';
 
 const props = defineProps<{
   initialCategories?: string[];
@@ -67,18 +67,10 @@ const emit = defineEmits<{
   }): void;
 }>();
 
+const categoryStore = useCategoryStore();
 const selectedCategories = ref<string[]>(props.initialCategories || []);
-const selectedStatus = ref<string[]>(props.initialStatus || []);
+const selectedStatus = ref<string[]>(props.initialStatus || [ItemStatus.DISPONIVEL]);
 const sortBy = ref<string>(props.initialSort || 'newest');
-
-const categorias = {
-  [ItemCategoria.ELETRONICOS]: 'Eletrônicos',
-  [ItemCategoria.VESTUARIO]: 'Vestuário',
-  [ItemCategoria.MOVEIS]: 'Móveis',
-  [ItemCategoria.LIVROS]: 'Livros',
-  [ItemCategoria.ESPORTES]: 'Esportes',
-  [ItemCategoria.OUTROS]: 'Outros'
-};
 
 const statusOptions = {
   [ItemStatus.DISPONIVEL]: 'Disponível',
@@ -95,12 +87,15 @@ const applyFilters = () => {
 
 const resetFilters = () => {
   selectedCategories.value = [];
-  selectedStatus.value = [];
+  selectedStatus.value = [ItemStatus.DISPONIVEL];
   sortBy.value = 'newest';
   applyFilters();
 };
 
-// Aplicar filtros iniciais
+onMounted(() => {
+  categoryStore.fetchCategories();
+});
+
 watch(() => props.initialCategories, (newVal) => {
   if (newVal) selectedCategories.value = newVal;
 }, { immediate: true });
@@ -127,6 +122,8 @@ watch(() => props.initialSort, (newVal) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
 }
 
 .filter-header h3 {
@@ -142,6 +139,7 @@ watch(() => props.initialSort, (newVal) => {
   display: flex;
   align-items: center;
   font-size: 14px;
+  padding: 5px;
 }
 
 .reset-button i {
@@ -154,32 +152,36 @@ watch(() => props.initialSort, (newVal) => {
 
 .filter-section h4 {
   font-size: 16px;
-  margin: 0 0 10px 0;
+  margin: 0 0 15px 0;
   color: #2c3e50;
 }
 
 .filter-options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .filter-option {
   display: flex;
   align-items: center;
   cursor: pointer;
+  font-size: 15px;
 }
 
 .filter-option input {
   margin-right: 10px;
+  width: 16px;
+  height: 16px;
 }
 
 .sort-select {
   width: 100%;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: white;
+  font-size: 15px;
 }
 
 @media (max-width: 768px) {

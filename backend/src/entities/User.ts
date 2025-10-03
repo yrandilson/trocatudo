@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 import { Item } from './Item';
 import { Proposta } from './Proposta';
-import { Rating } from './Rating';
+import { Rating } from './Rating'; // Importar Rating
 
 export enum UserRole {
   USER = 'user',
@@ -40,7 +40,8 @@ export class User {
 
   @OneToMany(() => Proposta, (proposta) => proposta.proponente)
   propostasFeitas!: Proposta[];
-  
+
+  // Nova Relação
   @OneToMany(() => Rating, rating => rating.ratedUser)
-ratingsReceived!: Rating[];
+  ratingsReceived!: Rating[];
 }

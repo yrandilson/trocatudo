@@ -1,7 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
 import { User } from './User';
 import { Item } from './Item';
-import { Rating } from './Rating';
+import { Rating } from './Rating'; // Importar Rating
 
 export enum PropostaStatus {
   PENDENTE = 'pendente',
@@ -36,13 +36,14 @@ export class Proposta {
     default: PropostaStatus.PENDENTE
   })
   status!: PropostaStatus;
+  
+  // Nova Relação
+  @OneToOne(() => Rating, rating => rating.proposta)
+  rating!: Rating;
 
   @CreateDateColumn()
   createdAt!: Date;
 
   @UpdateDateColumn()
   updatedAt!: Date;
-  
-  @OneToOne(() => Rating, rating => rating.proposta)
-rating!: Rating;
 }

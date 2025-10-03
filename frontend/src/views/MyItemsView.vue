@@ -51,7 +51,7 @@
         <div class="item-content">
           <h3 class="item-title">{{ item.titulo }}</h3>
           <div class="item-category">
-            <span class="category-badge">{{ getCategoriaLabel(item.categoria) }}</span>
+            <span class="category-badge">{{ item.category?.name || 'Sem categoria' }}</span>
           </div>
           <p class="item-description">{{ truncateText(item.descricao, 100) }}</p>
         </div>
@@ -70,7 +70,6 @@
       </div>
     </div>
 
-    <!-- Modal de confirmação de exclusão -->
     <div v-if="showDeleteModal" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -98,9 +97,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useItemsStore } from '@/stores/items';
-import { ItemCategoria, ItemStatus, type Item } from '@/types';
+import { ItemStatus, type Item } from '@/types';
 
 const itemStore = useItemsStore();
 const loading = ref(false);
@@ -146,18 +145,6 @@ const deleteItem = async () => {
   }
 };
 
-const getCategoriaLabel = (categoria: ItemCategoria) => {
-  const labels = {
-    [ItemCategoria.ELETRONICOS]: 'Eletrônicos',
-    [ItemCategoria.VESTUARIO]: 'Vestuário',
-    [ItemCategoria.MOVEIS]: 'Móveis',
-    [ItemCategoria.LIVROS]: 'Livros',
-    [ItemCategoria.ESPORTES]: 'Esportes',
-    [ItemCategoria.OUTROS]: 'Outros'
-  };
-  return labels[categoria] || 'Outros';
-};
-
 const getStatusLabel = (status: ItemStatus) => {
   const labels = {
     [ItemStatus.DISPONIVEL]: 'Disponível',
@@ -174,21 +161,14 @@ const getStatusClass = (status: ItemStatus) => {
 };
 
 const truncateText = (text: string, maxLength: number) => {
+  if (!text) return '';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 };
 
-const apiBaseUrl = computed(() => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
-});
-
 const getImageUrl = (imagePath: string) => {
   if (!imagePath) return '';
-  
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  }
-  return `${apiBaseUrl.value}${imagePath}`;
+  return imagePath;
 };
 
 onMounted(() => {
@@ -197,6 +177,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Estilos permanecem os mesmos */
 .my-items-container {
   max-width: 1200px;
   margin: 0 auto;
@@ -350,6 +331,8 @@ onMounted(() => {
   overflow: hidden;
   position: relative;
   transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
 }
 
 .item-card:hover {
@@ -408,6 +391,7 @@ onMounted(() => {
 
 .item-content {
   padding: 15px;
+  flex-grow: 1;
 }
 
 .item-title {
@@ -438,6 +422,7 @@ onMounted(() => {
 .item-actions {
   display: flex;
   border-top: 1px solid #eee;
+  margin-top: auto;
 }
 
 .view-button,

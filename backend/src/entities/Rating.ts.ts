@@ -27,7 +27,7 @@ export class Rating {
   @JoinColumn({ name: 'ratedUserId' })
   ratedUser!: User;
 
-  @Column()
+  @Column({ unique: true }) // Garante que uma proposta só pode ter uma avaliação
   propostaId!: number;
 
   @OneToOne(() => Proposta)

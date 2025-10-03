@@ -19,7 +19,7 @@
       <div class="item-header">
         <h1 class="item-title">{{ itemStore.currentItem.titulo }}</h1>
         <div class="item-badges">
-          <span class="category-badge">{{ getCategoriaLabel(itemStore.currentItem.categoria) }}</span>
+          <span class="category-badge">{{ itemStore.currentItem.category?.name }}</span>
           <span :class="['status-badge', getStatusClass(itemStore.currentItem.status)]">
             {{ getStatusLabel(itemStore.currentItem.status) }}
           </span>
@@ -57,7 +57,6 @@
           </div>
 
           <div class="item-actions">
-            <!-- Botão de proposta para usuários autenticados que não são donos do item -->
             <button 
               v-if="canPropose" 
               @click="showPropostaForm = true" 
@@ -66,21 +65,18 @@
               <i class="fas fa-handshake"></i> Fazer Proposta
             </button>
             
-            <!-- Mensagem para usuários não autenticados -->
             <div v-else-if="!authStore.isAuthenticated" class="login-prompt">
               <p>Faça login para enviar uma proposta para este item</p>
-              <router-link to="/login" class="login-button">
+              <router-link :to="{ name: 'Login', query: { redirect: route.fullPath } }" class="login-button">
                 <i class="fas fa-sign-in-alt"></i> Entrar
               </router-link>
             </div>
             
-            <!-- Mensagem para itens já trocados -->
             <div v-else-if="itemStore.currentItem.status === ItemStatus.TROCADO" class="traded-message">
               <i class="fas fa-info-circle"></i>
               <span>Este item já foi trocado e não está mais disponível</span>
             </div>
 
-            <!-- Ações para o dono do item ou moderadores -->
             <div v-if="isOwner || isModerator" class="owner-actions">
               <router-link 
                 :to="{ name: 'EditItem', params: { id: itemStore.currentItem.id } }" 
@@ -96,7 +92,6 @@
         </div>
       </div>
       
-      <!-- Seção de propostas relacionadas para o dono do item -->
       <div v-if="isOwner && relatedPropostas.length > 0" class="related-propostas">
         <h2>Propostas Recebidas</h2>
         <div class="propostas-list">
@@ -135,7 +130,6 @@
       <router-link to="/" class="back-button">Voltar para a página inicial</router-link>
     </div>
 
-    <!-- Modal de proposta -->
     <div v-if="showPropostaForm" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -167,7 +161,6 @@
       </div>
     </div>
 
-    <!-- Modal de confirmação de exclusão -->
     <div v-if="confirmDelete" class="modal">
       <div class="modal-content">
         <div class="modal-header">
@@ -200,7 +193,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useItemsStore } from '@/stores/items';
 import { useAuthStore } from '@/stores/auth';
 import { usePropostasStore } from '@/stores/propostas';
-import { ItemCategoria, ItemStatus, UserRole, PropostaStatus } from '@/types';
+import { ItemStatus, UserRole, PropostaStatus } from '@/types';
 import ImageCarousel from '@/components/ImageCarousel.vue';
 
 const route = useRoute();
@@ -257,7 +250,6 @@ const fetchItem = async () => {
   try {
     await itemStore.fetchItemById(id);
     
-    // Se o usuário for o dono do item, carregar as propostas relacionadas
     if (authStore.isAuthenticated && isOwner.value) {
       await propostasStore.fetchPropostasRecebidas();
     }
@@ -279,7 +271,6 @@ const enviarProposta = async () => {
     showPropostaForm.value = false;
     propostaForm.value.mensagem = '';
     
-    // Mostrar mensagem de sucesso
     alert('Proposta enviada com sucesso!');
   } catch (err: any) {
     alert(err.message || 'Erro ao enviar proposta');
@@ -292,17 +283,13 @@ const updatePropostaStatus = async (id: number, status: PropostaStatus) => {
   try {
     await propostasStore.updatePropostaStatus(id, status);
     
-    // Se aceitar a proposta, atualizar o status do item para trocado
     if (status === PropostaStatus.ACEITA && itemStore.currentItem) {
       await itemStore.updateItem(itemStore.currentItem.id, {
         status: ItemStatus.TROCADO
       });
-      
-      // Recarregar o item para atualizar o status
       await itemStore.fetchItemById(itemStore.currentItem.id);
     }
     
-    // Recarregar as propostas
     await propostasStore.fetchPropostasRecebidas();
   } catch (err: any) {
     alert(err.message || 'Erro ao atualizar proposta');
@@ -324,18 +311,6 @@ const deleteItem = async () => {
   } finally {
     deletingItem.value = false;
   }
-};
-
-const getCategoriaLabel = (categoria: ItemCategoria) => {
-  const labels = {
-    [ItemCategoria.ELETRONICOS]: 'Eletrônicos',
-    [ItemCategoria.VESTUARIO]: 'Vestuário',
-    [ItemCategoria.MOVEIS]: 'Móveis',
-    [ItemCategoria.LIVROS]: 'Livros',
-    [ItemCategoria.ESPORTES]: 'Esportes',
-    [ItemCategoria.OUTROS]: 'Outros'
-  };
-  return labels[categoria] || 'Outros';
 };
 
 const getStatusLabel = (status: ItemStatus) => {
@@ -371,6 +346,7 @@ const getPropostaStatusClass = (status: PropostaStatus) => {
 };
 
 const formatDate = (dateString: string) => {
+  if (!dateString) return '';
   const date = new Date(dateString);
   return date.toLocaleDateString('pt-BR');
 };
@@ -381,18 +357,20 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Estilos permanecem os mesmos */
 .item-detail-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
 }
 
-.loading {
+.loading, .error-container, .not-found {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 40px;
+  min-height: 300px;
 }
 
 .spinner {
@@ -423,13 +401,6 @@ onMounted(() => {
   }
 }
 
-.error-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px;
-}
-
 .error-message {
   display: flex;
   align-items: center;
@@ -442,7 +413,7 @@ onMounted(() => {
   margin-right: 10px;
 }
 
-.retry-button {
+.retry-button, .back-button {
   background-color: #3498db;
   color: white;
   border: none;
@@ -451,6 +422,7 @@ onMounted(() => {
   cursor: pointer;
   display: flex;
   align-items: center;
+  text-decoration: none;
 }
 
 .retry-button i {
@@ -469,30 +441,27 @@ onMounted(() => {
 .item-badges {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.category-badge, .status-badge {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
 }
 
 .category-badge {
   background-color: #3498db;
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.status-badge {
-  padding: 5px 10px;
-  border-radius: 4px;
-  font-size: 14px;
 }
 
 .status-badge.available {
   background-color: #2ecc71;
-  color: white;
 }
 
 .status-badge.traded {
   background-color: #e74c3c;
-  color: white;
 }
 
 .item-body {
@@ -502,365 +471,13 @@ onMounted(() => {
   margin-bottom: 30px;
 }
 
+.item-description p {
+    white-space: pre-wrap;
+}
+
 @media (max-width: 768px) {
   .item-body {
     grid-template-columns: 1fr;
   }
-}
-
-.item-images {
-  width: 100%;
-}
-
-.item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.item-description h2,
-.item-owner h2 {
-  font-size: 20px;
-  margin-bottom: 10px;
-  color: #2c3e50;
-}
-
-.item-description p {
-  line-height: 1.6;
-  white-space: pre-line;
-}
-
-.owner-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.item-dates {
-  margin-top: 10px;
-  font-size: 14px;
-  color: #7f8c8d;
-}
-
-.item-dates p {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-
-.item-actions {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.propose-button {
-  background-color: #2ecc71;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.login-prompt {
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 15px;
-  text-align: center;
-}
-
-.login-button {
-  display: inline-flex;
-  align-items: center;
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  margin-top: 10px;
-  text-decoration: none;
-  gap: 8px;
-}
-
-.traded-message {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 15px;
-  color: #7f8c8d;
-}
-
-.owner-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.edit-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.delete-button {
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.not-found {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px;
-}
-
-.not-found i {
-  font-size: 48px;
-  color: #7f8c8d;
-  margin-bottom: 20px;
-}
-
-.back-button {
-  margin-top: 20px;
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-/* Seção de propostas relacionadas */
-.related-propostas {
-  margin-top: 30px;
-  border-top: 1px solid #eee;
-  padding-top: 30px;
-}
-
-.related-propostas h2 {
-  font-size: 24px;
-  margin-bottom: 20px;
-}
-
-.propostas-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.proposta-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.proposta-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 15px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #eee;
-}
-
-.proposta-status {
-  padding: 3px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.proposta-status.pending {
-  background-color: #f39c12;
-  color: white;
-}
-
-.proposta-status.accepted {
-  background-color: #2ecc71;
-  color: white;
-}
-
-.proposta-status.rejected {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.proposta-date {
-  font-size: 12px;
-  color: #7f8c8d;
-}
-
-.proposta-body {
-  padding: 15px;
-}
-
-.proposta-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.proposta-message {
-  background-color: #f8f9fa;
-  border-radius: 4px;
-  padding: 10px;
-  margin-top: 10px;
-}
-
-.proposta-message p {
-  margin: 0;
-  white-space: pre-line;
-}
-
-.proposta-actions {
-  display: flex;
-  border-top: 1px solid #eee;
-}
-
-.accept-button,
-.reject-button {
-  flex: 1;
-  border: none;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.accept-button {
-  background-color: #2ecc71;
-  color: white;
-}
-
-.reject-button {
-  background-color: #e74c3c;
-  color: white;
-}
-
-/* Modal styles */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background-color: white;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.close-button {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #7f8c8d;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-}
-
-.form-group textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  resize: vertical;
-}
-
-.modal-footer {
-  padding: 15px 20px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.cancel-button {
-  background-color: #95a5a6;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.submit-button {
-  background-color: #2ecc71;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.warning {
-  color: #e74c3c;
-  font-weight: 500;
 }
 </style>

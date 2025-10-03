@@ -18,7 +18,7 @@
     <div class="item-content">
       <h3 class="item-title">{{ item.titulo }}</h3>
       <div class="item-category">
-        <span class="category-badge">{{ getCategoriaLabel(item.categoria) }}</span>
+        <span class="category-badge">{{ item.category?.name || 'Sem categoria' }}</span>
       </div>
       <p class="item-description">{{ truncateText(item.descricao, 100) }}</p>
       
@@ -38,23 +38,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { ItemCategoria, ItemStatus, type Item } from '@/types';
+import { ItemStatus, type Item } from '@/types';
 
 const props = defineProps<{
   item: Item;
 }>();
-
-const getCategoriaLabel = (categoria: ItemCategoria) => {
-  const labels = {
-    [ItemCategoria.ELETRONICOS]: 'Eletrônicos',
-    [ItemCategoria.VESTUARIO]: 'Vestuário',
-    [ItemCategoria.MOVEIS]: 'Móveis',
-    [ItemCategoria.LIVROS]: 'Livros',
-    [ItemCategoria.ESPORTES]: 'Esportes',
-    [ItemCategoria.OUTROS]: 'Outros'
-  };
-  return labels[categoria] || 'Outros';
-};
 
 const getStatusLabel = (status: ItemStatus) => {
   const labels = {
@@ -72,21 +60,15 @@ const getStatusClass = (status: ItemStatus) => {
 };
 
 const truncateText = (text: string, maxLength: number) => {
+  if (!text) return '';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 };
 
-const apiBaseUrl = computed(() => {
-  return import.meta.env.VITE_API_URL || 'http://localhost:3000';
-});
-
 const getImageUrl = (imagePath: string) => {
   if (!imagePath) return '';
-  
-  if (imagePath.startsWith('http')) {
-    return imagePath;
-  }
-  return `${apiBaseUrl.value}${imagePath}`;
+  // As imagens são servidas pelo backend, o proxy do Vite irá redirecionar
+  return imagePath;
 };
 </script>
 

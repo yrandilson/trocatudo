@@ -9,6 +9,8 @@ export enum ItemStatus {
   TROCADO = 'trocado'
 }
 
+// REMOVIDO o enum ItemCategoria daqui
+
 export enum PropostaStatus {
   PENDENTE = 'pendente',
   ACEITA = 'aceita',
@@ -34,7 +36,7 @@ export interface Item {
   id: number
   titulo: string
   descricao: string
-  category: Category
+  category: Category // Alterado aqui
   imagens?: string[]
   status: ItemStatus
   userId: number
@@ -53,7 +55,7 @@ export interface Proposta {
   status: PropostaStatus
   createdAt: string
   updatedAt: string
-  rating?: Rating; // Adicionado
+  rating?: Rating;
 }
 
 export interface Rating {
